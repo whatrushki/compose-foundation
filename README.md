@@ -70,6 +70,7 @@ graph TD
 
     subgraph FeatureLayer["Функциональные сервисы"]
         UI["foundation-ui<br/><i>Components, Icons, Themes, LiquidBackground</i>"]
+        NAV["foundation-navigation<br/><i>Navigator, NavHost, BottomNavBar, Sheets, Dialogs</i>"]
         NET["foundation-network<br/><i>NetworkMonitor, Ktor Logging Plugin</i>"]
         UPDATER["foundation-updater<br/><i>GithubUpdateService, APK Manager</i>"]
         CRASH["foundation-crash<br/><i>CrashHandler, Bootloop Guard, CrashScreen</i>"]
@@ -79,6 +80,7 @@ graph TD
     ALL --> STATE
     ALL --> PREF
     ALL --> UI
+    ALL --> NAV
     ALL --> NET
     ALL --> UPDATER
     ALL --> CRASH
@@ -89,6 +91,8 @@ graph TD
     UI --> CORE
     UI --> STATE
     UI --> PREF
+    NAV --> CORE
+    NAV --> UI
     NET --> CORE
     UPDATER --> CORE
     UPDATER --> UI
@@ -102,6 +106,7 @@ graph TD
 | **`:foundation-state`** | Реактивные хуки и контроллеры оконных состояний | `useState`, `useChange`, `freeze`, `DialogController`, `SheetController` |
 | **`:foundation-preferences`** | Потокобезопасное типизированное хранилище | `PreferenceStorage`, `AndroidPreferenceEncryptor`, `KeyValueStorage` |
 | **`:foundation-ui`** | Базовые компоненты, анимации, темы и иконки | `SearchBox`, `StyledTextField`, `AdvancedLiquidBackground`, `WHATIcons` |
+| **`:foundation-navigation`** | Типобезопасная KMP-навигация, шторки, Bottom/SideBar | `Navigator`, `NavigationHost`, `BottomNavBar`, `SheetNavigator`, `ProvideGlobalDialog` |
 | **`:foundation-network`** | Мониторинг сети и инспекция HTTP-трафика | `NetworkMonitor`, `LoggedRequest`, `HttpLoggingPlugin` |
 | **`:foundation-updater`** | Автообновление приложений с GitHub | `GithubUpdateService`, `GitHubUpdateManager`, `DownloadProgress` |
 | **`:foundation-crash`** | Перехватчик крашей и экран отчета об ошибке | `CrashHandler`, `CurrentActivityHolder`, `CrashScreen` |
@@ -222,6 +227,31 @@ val client = HttpClient {
     install(NetworkMonitor.Plugin) {
         maxMemoryLogs = 200
         sanitizeHeaders = listOf("Authorization", "Cookie")
+    }
+}
+```
+
+#### 5. Мультиплатформенная навигация и Bottom/SideBar (`foundation-navigation`)
+
+Типобезопасная навигация без утечек памяти и с бесшовной поддержкой вложенных графов, глобальных диалогов и шторок:
+
+```kotlin
+@Serializable
+data object HomeRoute : NavProvider()
+
+val appRegistry: Registry = {
+    register(HomeScreen::class) { HomeScreen(it) }
+}
+
+@Composable
+fun App() {
+    ProvideGlobalDialog {
+        ProvideGlobalSheet {
+            NavigationHost(
+                start = HomeRoute,
+                registry = appRegistry
+            )
+        }
     }
 }
 ```

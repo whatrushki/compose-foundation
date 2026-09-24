@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
 }
@@ -23,23 +24,37 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":foundation-core"))
-            api(project(":foundation-preferences"))
-            api(project(":foundation-state"))
             api(project(":foundation-ui"))
-            api(project(":foundation-network"))
-            api(project(":foundation-updater"))
-            api(project(":foundation-crash"))
-            api(project(":foundation-navigation"))
+
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.material3)
+            implementation(compose.ui)
+            implementation(compose.materialIconsExtended)
+            implementation(compose.components.resources)
+
+            api(libs.jetbrains.navigation.compose)
+            implementation(libs.kotlinx.serialization.json)
+        }
+        jvmMain.dependencies {
+            implementation(kotlin("reflect"))
+        }
+        androidMain.dependencies {
+            implementation(kotlin("reflect"))
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
         }
     }
 }
 
 android {
-    namespace = "app.what.foundation"
+    namespace = "app.what.foundation.navigation"
     compileSdk = 36
 
     defaultConfig {
         minSdk = 26
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     compileOptions {
