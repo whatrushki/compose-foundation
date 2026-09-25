@@ -3,7 +3,7 @@
 <br />
 
 <!-- 1. Закругленная иконка проекта -->
-<img src=".github/res/icon.png" width="80" height="80" alt="Compose Foundation Icon" style="border-radius: 20%;" />
+<img src=".github/res/icon.svg" width="80" height="80" alt="Compose Foundation Icon" style="border-radius: 20%;" />
 
 # COMPOSE FOUNDATION
 
