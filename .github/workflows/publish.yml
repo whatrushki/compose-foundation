@@ -9,6 +9,10 @@ on:
         description: 'Version override (leave empty to use default)'
         required: false
         default: ''
+      module:
+        description: 'Module to publish (leave empty to publish all)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -44,4 +48,9 @@ jobs:
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION_ARG="-Pversion=${{ github.event.inputs.version }}"
           fi
-          ./gradlew publishAllPublicationsToGitHubPackagesRepository $VERSION_ARG
+          MODULE="${{ github.event.inputs.module }}"
+          if [ -n "$MODULE" ]; then
+            ./gradlew :$MODULE:publishAllPublicationsToGitHubPackagesRepository $VERSION_ARG
+          else
+            ./gradlew publishAllPublicationsToGitHubPackagesRepository $VERSION_ARG --continue
+          fi
