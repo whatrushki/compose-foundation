@@ -63,20 +63,20 @@ interface AppUpdateManager {
 @Serializable
 data class GitHubRelease(
     @SerialName("tag_name") val tagName: String,
-    val name: String,
-    val body: String,
-    val assets: List<GitHubAsset>,
-    @SerialName("published_at") val publishedAt: String,
-    val prerelease: Boolean,
-    val draft: Boolean
+    val name: String? = null,
+    val body: String? = null,
+    val assets: List<GitHubAsset> = emptyList(),
+    @SerialName("published_at") val publishedAt: String? = null,
+    val prerelease: Boolean = false,
+    val draft: Boolean = false
 )
 
 @Serializable
 data class GitHubAsset(
-    val name: String,
-    @SerialName("browser_download_url") val browserDownloadUrl: String,
-    val size: Long,
-    @SerialName("download_count") val downloadCount: Int
+    val name: String = "",
+    @SerialName("browser_download_url") val browserDownloadUrl: String = "",
+    val size: Long = 0L,
+    @SerialName("download_count") val downloadCount: Int = 0
 )
 
 data class DownloadProgress(

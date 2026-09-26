@@ -40,12 +40,26 @@ class GitHubUpdateManager(
         }
     }
 
+    private var lastCheckTime: Long = 0L
+    private var lastResult: UpdateResult? = null
+
     override suspend fun checkForUpdates(): UpdateResult {
+        val now = System.currentTimeMillis()
+        if (updateInfo != null) {
+            return UpdateResult.Available(updateInfo!!)
+        }
+        val cached = lastResult
+        if (cached != null && now - lastCheckTime < 15 * 60 * 1000L) {
+            return cached
+        }
+
         val result = gitHubService.checkForUpdates(
             config.githubOwner,
             config.githubRepo,
             config.currentVersion
         )
+        lastCheckTime = now
+        lastResult = result
 
         return when (result) {
             is UpdateResult.Available -> {
