@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
 }
@@ -23,27 +24,22 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":foundation-core"))
-            api(project(":foundation-preferences"))
-            api(project(":foundation-state"))
             api(project(":foundation-ui"))
             api(project(":foundation-network"))
+            api(project(":foundation-preferences"))
             api(project(":foundation-updater"))
-            api(project(":foundation-crash"))
-            api(project(":foundation-navigation"))
-            api(project(":foundation-scraper"))
-            api(project(":foundation-healthcheck"))
-            api(project(":foundation-session-tracker"))
-            api(project(":foundation-delivery"))
-        }
-        androidMain.dependencies {
-            api(project(":foundation-firebase"))
-            api(project(":foundation-updater-rustore"))
+            api(libs.kotlinx.datetime)
+            api(libs.kotlinx.serialization.json)
+            implementation(libs.bundles.ktor)
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.material3)
         }
     }
 }
 
 android {
-    namespace = "app.what.foundation"
+    namespace = "app.what.foundation.delivery"
     compileSdk = 36
 
     defaultConfig {
