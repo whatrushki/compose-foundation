@@ -46,6 +46,13 @@ abstract class UIController<S : Any, A, E>(initialState: S) : ViewModel() {
         }
     }
 
+    @Deprecated(
+        message = "Use CollectAction { } for channel-based actions",
+        replaceWith = ReplaceWith("CollectAction(block)")
+    )
+    @Composable
+    fun collectActions(): State<A?> = actions.collectAsStateWithLifecycle(null)
+
     abstract fun obtainEvent(viewEvent: E)
 
     protected fun updateState(state: S) {
