@@ -91,10 +91,15 @@ data class ScrapedLesson(
             .trim()
             .lowercase()
 
+        fun cleanRoom(r: String): String {
+            val trimmed = r.trim().removeSuffix(".0")
+            return clean(trimmed)
+        }
+
         return units.all { u ->
             other.units.any { ou ->
                 clean(u.teacher) == clean(ou.teacher) &&
-                clean(u.room) == clean(ou.room)
+                cleanRoom(u.room) == cleanRoom(ou.room)
             }
         }
     }

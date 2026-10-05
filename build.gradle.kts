@@ -9,7 +9,7 @@ plugins {
 
 allprojects {
     group = "app.what.foundation"
-    version = "1.0.1"
+    version = "1.1.0"
 }
 
 subprojects {
