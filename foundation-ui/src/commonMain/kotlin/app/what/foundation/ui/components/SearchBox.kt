@@ -12,35 +12,39 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import app.what.foundation.ui.useState
 import kotlinx.coroutines.delay
 
 @Composable
 fun SearchBox(
     query: String,
     setQuery: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    debounce: Long = 400L
 ) {
-    val (value, setValue) = useState(query)
+    var text by remember { mutableStateOf(query) }
 
     LaunchedEffect(query) {
-        if (value != query) {
-            setValue(query)
+        if (text != query) {
+            text = query
         }
     }
 
-    LaunchedEffect(value) {
-        if (value != query) {
-            delay(500)
-            setQuery(value)
+    LaunchedEffect(text) {
+        if (text != query) {
+            if (debounce > 0) delay(debounce)
+            setQuery(text)
         }
     }
-    
+
     TextField(
-        value,
-        setValue,
+        value = text,
+        onValueChange = { text = it },
         modifier = Modifier
             .focusable(true)
             .fillMaxWidth()

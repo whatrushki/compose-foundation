@@ -64,7 +64,7 @@ graph TD
     end
 
     subgraph StateLayer["Состояние и Хранение"]
-        STATE["foundation-state<br/><i>useState, useChange, freeze, Controllers</i>"]
+        STATE["foundation-state<br/><i>useState, useChange, useInterval, Controllers</i>"]
         PREF["foundation-preferences<br/><i>PreferenceStorage, Keystore AES-GCM</i>"]
     end
 
@@ -73,6 +73,8 @@ graph TD
         NAV["foundation-navigation<br/><i>Navigator, NavHost, BottomNavBar, Sheets, Dialogs</i>"]
         NET["foundation-network<br/><i>NetworkMonitor, Ktor Logging Plugin</i>"]
         UPDATER["foundation-updater<br/><i>GithubUpdateService, APK Manager</i>"]
+        RUSTORE["foundation-updater-rustore<br/><i>RuStoreUpdateManager</i>"]
+        FIREBASE["foundation-firebase<br/><i>FirebaseCrashReporter, FirebaseAnalytics</i>"]
         CRASH["foundation-crash<br/><i>CrashHandler, Bootloop Guard, CrashScreen</i>"]
     end
 
@@ -83,6 +85,8 @@ graph TD
     ALL --> NAV
     ALL --> NET
     ALL --> UPDATER
+    ALL --> RUSTORE
+    ALL --> FIREBASE
     ALL --> CRASH
 
     STATE --> CORE
@@ -96,19 +100,23 @@ graph TD
     NET --> CORE
     UPDATER --> CORE
     UPDATER --> UI
+    RUSTORE --> UPDATER
+    FIREBASE --> CORE
     CRASH --> CORE
     CRASH --> UI
 ```
 
 | Модуль | Описание | Основные сущности |
 | :--- | :--- | :--- |
-| **`:foundation-core`** | Ядро архитектуры, логирование, платформенные утилиты | `UIController`, `AppLogger`, `Auditor`, `TimeUtils`, `AppUtils` |
-| **`:foundation-state`** | Реактивные хуки и контроллеры оконных состояний | `useState`, `useChange`, `freeze`, `DialogController`, `SheetController` |
-| **`:foundation-preferences`** | Потокобезопасное типизированное хранилище | `PreferenceStorage`, `AndroidPreferenceEncryptor`, `KeyValueStorage` |
-| **`:foundation-ui`** | Базовые компоненты, анимации, темы и иконки | `SearchBox`, `StyledTextField`, `AdvancedLiquidBackground`, `WHATIcons` |
+| **`:foundation-core`** | Чистое ядро архитектуры, логирование, MVI-контроллер, утилиты | `UIController`, `AppLogger`, `Auditor`, `TimeUtils`, `AppUtils` |
+| **`:foundation-state`** | Реактивные хуки и контроллеры оконных состояний | `useState`, `useChange`, `useInterval`, `DialogController`, `SheetController` |
+| **`:foundation-preferences`** | Потокобезопасное хранилище с кэшированием и AES-GCM | `PreferenceStorage`, `AndroidPreferenceEncryptor`, `KeyValueStorage` |
+| **`:foundation-ui`** | Базовые компоненты, анимации, темы и иконки | `SearchBox`, `StyledTextField`, `LiquidBackground`, `WHATIcons` |
 | **`:foundation-navigation`** | Типобезопасная KMP-навигация, шторки, Bottom/SideBar | `Navigator`, `NavigationHost`, `BottomNavBar`, `SheetNavigator`, `ProvideGlobalDialog` |
-| **`:foundation-network`** | Мониторинг сети и инспекция HTTP-трафика | `NetworkMonitor`, `LoggedRequest`, `HttpLoggingPlugin` |
-| **`:foundation-updater`** | Автообновление приложений с GitHub | `GithubUpdateService`, `GitHubUpdateManager`, `DownloadProgress` |
+| **`:foundation-network`** | Потокобезопасный инспектор HTTP-трафика Ktor | `NetworkMonitor`, `NetworkRequest`, `NetworkMonitorPlugin` |
+| **`:foundation-updater`** | KMP-автообновление приложений с GitHub | `GitHubUpdateService`, `GitHubUpdateManager`, `DownloadState` |
+| **`:foundation-updater-rustore`** | Опциональный адаптер автообновлений RuStore | `RuStoreUpdateManager` |
+| **`:foundation-firebase`** | Опциональный адаптер Firebase Analytics & Crashlytics | `FirebaseAnalyticsTracker`, `FirebaseCrashReporter` |
 | **`:foundation-crash`** | Перехватчик крашей и экран отчета об ошибке | `CrashHandler`, `CurrentActivityHolder`, `CrashScreen` |
 | **`:compose-foundation`** | Umbrella-артефакт (включает все модули транзитивно) | `ComposeFoundation` |
 

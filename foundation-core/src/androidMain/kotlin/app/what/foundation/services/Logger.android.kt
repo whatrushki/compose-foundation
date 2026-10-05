@@ -4,10 +4,17 @@ import android.content.Context
 import android.util.Log
 import java.io.File
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
 class AndroidAppLogger(context: Context) : AppLogger(
     logFilePath = "${context.applicationContext.filesDir.absolutePath}/audit_logs.txt"
 ) {
     private val logFileRef by lazy { File(logFilePath ?: "") }
+    private val oldLogFileRef by lazy { File("${logFilePath ?: ""}.old") }
+    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun log(level: LogLevel, tag: String, message: String, throwable: Throwable?) {
         super.log(level, tag, message, throwable)
@@ -20,12 +27,15 @@ class AndroidAppLogger(context: Context) : AppLogger(
         val fullMessage = "$message " + (throwable?.let { "\n${it.stackTraceToString()}" } ?: "")
         Log.println(priority, tag, fullMessage)
 
-        try {
-            if (logFileRef.length() > 512 * 1024) {
-                logFileRef.writeText("")
-            }
-            logFileRef.appendText("[${level.name}] [$tag] $fullMessage\n")
-        } catch (_: Exception) {}
+        ioScope.launch {
+            try {
+                if (logFileRef.length() > 512 * 1024) {
+                    if (oldLogFileRef.exists()) oldLogFileRef.delete()
+                    logFileRef.renameTo(oldLogFileRef)
+                }
+                logFileRef.appendText("[${level.name}] [$tag] $fullMessage\n")
+            } catch (_: Exception) {}
+        }
     }
 }
 

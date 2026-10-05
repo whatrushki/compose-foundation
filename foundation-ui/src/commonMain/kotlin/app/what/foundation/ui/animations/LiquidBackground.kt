@@ -24,13 +24,12 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
 
-
 @Composable
-fun AdvancedLiquidBackground(
+fun LiquidBackground(
     layers: List<Pair<Color, Color>>,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition()
+    val infiniteTransition = rememberInfiniteTransition(label = "LiquidBackgroundTransition")
 
     Box(modifier) {
         layers.forEachIndexed { index, (startColor, endColor) ->
@@ -40,7 +39,8 @@ fun AdvancedLiquidBackground(
                 animationSpec = infiniteRepeatable(
                     animation = tween(7000 + index * 2000, easing = FastOutSlowInEasing),
                     repeatMode = RepeatMode.Reverse
-                )
+                ),
+                label = "LiquidLayerColor_$index"
             )
 
             LiquidLayer(
@@ -50,11 +50,22 @@ fun AdvancedLiquidBackground(
                 speed = 10000 + index * 3000,
                 offsetY = 0.4f + index * 0.1f,
                 alpha = 0.6f + index * 0.1f,
-                blur = (20 + index * 10).dp
+                blur = (20 + index * 10).dp,
+                layerIndex = index
             )
         }
     }
 }
+
+@Deprecated(
+    message = "Renamed to LiquidBackground",
+    replaceWith = ReplaceWith("LiquidBackground(layers, modifier)")
+)
+@Composable
+fun AdvancedLiquidBackground(
+    layers: List<Pair<Color, Color>>,
+    modifier: Modifier = Modifier
+) = LiquidBackground(layers = layers, modifier = modifier)
 
 @Composable
 fun LiquidLayer(
@@ -65,8 +76,9 @@ fun LiquidLayer(
     offsetY: Float,
     alpha: Float = 1f,
     blur: Dp = 10.dp,
+    layerIndex: Int = 0
 ) {
-    val infiniteTransition = rememberInfiniteTransition()
+    val infiniteTransition = rememberInfiniteTransition(label = "LiquidLayerTransition_$layerIndex")
 
     // Анимация фазы для волны
     val phase by infiniteTransition.animateFloat(
@@ -75,7 +87,8 @@ fun LiquidLayer(
         animationSpec = infiniteRepeatable(
             animation = tween(speed, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
-        )
+        ),
+        label = "phase_$layerIndex"
     )
 
     // Дополнительная анимация для сложной волны
@@ -85,20 +98,28 @@ fun LiquidLayer(
         animationSpec = infiniteRepeatable(
             animation = tween(speed / 2, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
-        )
+        ),
+        label = "phase2_$layerIndex"
     )
 
     val path = remember { Path() }
+    val useHardwareBlur = supportsHardwareBlur
 
-    Canvas(
-        modifier = Modifier
-            .fillMaxSize()
-            .blur(blur, BlurredEdgeTreatment.Unbounded)
-    ) {
+    val canvasModifier = Modifier.fillMaxSize().let { mod ->
+        if (useHardwareBlur) {
+            mod.blur(blur, BlurredEdgeTreatment.Unbounded)
+        } else {
+            mod
+        }
+    }
+
+    // На устройствах без аппаратного blur увеличиваем шаг дискретизации для высокой частоты кадров
+    val step = if (useHardwareBlur) 20 else 32
+
+    Canvas(modifier = canvasModifier) {
         path.reset()
         path.moveTo(0f, size.height * offsetY)
 
-        val step = 16
         val widthInt = size.width.toInt()
         for (x in 0 until widthInt step step) {
             val normalizedX = x.toFloat() / size.width
@@ -118,7 +139,7 @@ fun LiquidLayer(
         drawPath(
             path = path,
             color = color,
-            alpha = alpha
+            alpha = if (useHardwareBlur) alpha else (alpha * 0.85f)
         )
     }
 }

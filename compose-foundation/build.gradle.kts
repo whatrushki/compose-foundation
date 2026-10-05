@@ -31,6 +31,10 @@ kotlin {
             api(project(":foundation-crash"))
             api(project(":foundation-navigation"))
         }
+        androidMain.dependencies {
+            api(project(":foundation-firebase"))
+            api(project(":foundation-updater-rustore"))
+        }
     }
 }
 

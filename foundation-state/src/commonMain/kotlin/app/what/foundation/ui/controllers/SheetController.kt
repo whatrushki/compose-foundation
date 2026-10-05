@@ -9,11 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import app.what.foundation.utils.retry
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
 
 @Composable
 fun rememberSheetController(): SheetController = LocalSheetController.current
@@ -28,6 +25,7 @@ fun rememberSheetHostController(
 
     return remember {
         object : SheetController {
+            override var full by mutableStateOf(true)
             override var content by mutableStateOf(start)
             override var cancellable by mutableStateOf(true)
             override var opened by mutableStateOf(false)
@@ -43,20 +41,19 @@ fun rememberSheetHostController(
             ) {
                 this.content = content
                 this.cancellable = cancellable
+                this.full = full
                 open(full)
             }
 
             override fun open(full: Boolean) {
+                this.full = full
                 opened = true
                 scope.launch {
                     try {
-                        if (full) sheetState?.expand() else sheetState?.show()
-                    } catch (_: Exception) {
-                        delay(100)
-                        try {
+                        if (sheetState?.isVisible == true) {
                             if (full) sheetState?.expand() else sheetState?.show()
-                        } catch (_: Exception) {}
-                    }
+                        }
+                    } catch (_: Exception) {}
                 }
             }
 
@@ -72,17 +69,17 @@ fun rememberSheetHostController(
     }
 }
 
-
 val LocalSheetController = compositionLocalOf<SheetController> { error("SheetController не предоставлен в дереве компонентов") }
 
 interface SheetController {
+    var full: Boolean
     val opened: Boolean
     var cancellable: Boolean
     var content: @Composable () -> Unit
 
-    fun open(full: Boolean = false)
+    fun open(full: Boolean = true)
     fun open(
-        full: Boolean = false,
+        full: Boolean = true,
         cancellable: Boolean = true,
         content: @Composable () -> Unit
     )

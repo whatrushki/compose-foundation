@@ -180,7 +180,7 @@ private fun FullScreenImageDialog(
                             val id = kotlin.random.Random.nextInt(100000, 999999)
                             saveImageToDevice(
                                 it,
-                                "schedule_new_image_$id.jpg",
+                                "image_$id.jpg",
                                 context
                             )
                         }

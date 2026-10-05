@@ -132,10 +132,13 @@ fun ProvideGlobalSheet(
     LocalSheetController provides controller,
     LocalSheetNavigator provides SheetNavigator(controller, navGraph)
 ) {
-    val state = rememberModalBottomSheetState {
-        if (it != SheetValue.Hidden) true
-        else controller.cancellable
-    }
+    val state = rememberModalBottomSheetState(
+        skipPartiallyExpanded = controller.full,
+        confirmValueChange = {
+            if (it != SheetValue.Hidden) true
+            else controller.cancellable
+        }
+    )
 
     LaunchedEffect(Unit) { controller.setSheetState(state) }
 

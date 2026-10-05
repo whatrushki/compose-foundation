@@ -5,5 +5,5 @@ import androidx.compose.ui.Modifier
 
 interface UIComponent {
     @Composable
-    fun content(modifier: Modifier): Any
+    fun content(modifier: Modifier = Modifier)
 }

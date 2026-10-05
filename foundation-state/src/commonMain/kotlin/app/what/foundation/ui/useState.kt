@@ -53,8 +53,58 @@ fun <T> useSave(initialValue: T, vararg inputs: Any?): MutableState<T> {
     }
 }
 
+/**
+ * Replaces the old polling implementation with genuine reaction to [value] changes.
+ * @param value The value to observe for changes.
+ * @param skipInitial If true, the [block] will not run during initial composition.
+ * @param block Suspend lambda executed whenever [value] changes.
+ */
 @Composable
 fun <T> useChange(
+    value: T,
+    skipInitial: Boolean = false,
+    block: suspend (T) -> Unit
+) {
+    val isInitial = remember { mutableStateOf(true) }
+    val currentBlock by rememberUpdatedState(block)
+
+    LaunchedEffect(value) {
+        if (skipInitial && isInitial.value) {
+            isInitial.value = false
+            return@LaunchedEffect
+        }
+        isInitial.value = false
+        currentBlock(value)
+    }
+}
+
+/**
+ * Executes [block] when any of [keys] change.
+ */
+@Composable
+fun useChange(
+    vararg keys: Any?,
+    skipInitial: Boolean = false,
+    block: suspend () -> Unit
+) {
+    val isInitial = remember { mutableStateOf(true) }
+    val currentBlock by rememberUpdatedState(block)
+
+    LaunchedEffect(*keys) {
+        if (skipInitial && isInitial.value) {
+            isInitial.value = false
+            return@LaunchedEffect
+        }
+        isInitial.value = false
+        currentBlock()
+    }
+}
+
+/**
+ * Periodically executes [block] while application is in foreground.
+ */
+@Composable
+fun <T> useInterval(
     initialValue: T,
     delaySeconds: Long = 10L,
     block: (T) -> T

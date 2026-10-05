@@ -42,4 +42,13 @@ inline fun <reified P : NavProvider, S : NavComponent<P>> NavGraphBuilder.regist
     }
 }
 
+inline fun <reified P : NavProvider> NavGraphBuilder.registerRoute(
+    crossinline content: @Composable (P) -> Unit
+) {
+    composable<P> {
+        val provider = it.toRoute<P>()
+        content(provider)
+    }
+}
+
 typealias Registry = NavGraphBuilder.() -> Unit

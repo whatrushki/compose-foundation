@@ -6,8 +6,10 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 class JvmKeyValueStorage(
-    private val file: File = File(System.getProperty("user.home"), ".what_schedule/preferences.json")
+    appName: String = "app_preferences",
+    private val file: File = File(System.getProperty("user.home"), ".$appName/preferences.json")
 ) : KeyValueStorage {
+    constructor(file: File) : this(appName = file.nameWithoutExtension, file = file)
     private val map = ConcurrentHashMap<String, String>()
     private var changeListener: ((String) -> Unit)? = null
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }

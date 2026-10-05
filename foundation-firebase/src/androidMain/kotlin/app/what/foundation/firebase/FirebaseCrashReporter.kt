@@ -1,5 +1,6 @@
-package app.what.foundation.utils
+package app.what.foundation.firebase
 
+import app.what.foundation.utils.CrashReporter
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 class FirebaseCrashReporter : CrashReporter {

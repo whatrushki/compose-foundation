@@ -1,5 +1,6 @@
-package app.what.foundation.utils
+package app.what.foundation.firebase
 
+import app.what.foundation.utils.AnalyticsTracker
 import com.google.firebase.Firebase
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.analytics

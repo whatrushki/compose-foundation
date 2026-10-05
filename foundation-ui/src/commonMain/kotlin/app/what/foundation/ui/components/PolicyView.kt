@@ -15,7 +15,9 @@ import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,50 +33,65 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import org.koin.compose.koinInject
 
-private const val PRIVACY_POLICY_URL = "https://raw.githubusercontent.com/whatrushki/schedule/refs/heads/master/PRIVACY_POLICY.md"
+val LocalPrivacyPolicyUrl = compositionLocalOf<String?> { null }
 
 @Composable
-fun PolicyView() = Column {
-    val client = koinInject<HttpClient>()
+fun PolicyView(
+    url: String? = LocalPrivacyPolicyUrl.current,
+    httpClient: HttpClient? = null
+) = Column {
     var content by useState<AnnotatedString?>(null)
     var isError by useState(false)
     val shimmer = rememberShimmer()
     val uriHandler = LocalUriHandler.current
     val colors = colorScheme
-    
-    LaunchedEffect(Unit) {
+    val targetUrl = url ?: ""
+    val client = remember(httpClient) { httpClient ?: HttpClient() }
+
+    LaunchedEffect(targetUrl) {
+        if (targetUrl.isBlank()) {
+            isError = true
+            return@LaunchedEffect
+        }
         try {
-            val response = client.get(PRIVACY_POLICY_URL)
+            val response = client.get(targetUrl)
             if (response.status.value in 200..299) {
                 content = parseMarkdown(response.bodyAsText(), colors)
             } else {
                 isError = true
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             isError = true
         }
     }
-    
-    if (content != null) SelectionContainer(
-        Modifier
-            .fillMaxSize()
-            .padding(8.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Text(content!!)
-    } else if (!isError) repeat(3) {
-        Box(
+
+    if (content != null) {
+        SelectionContainer(
             Modifier
-                .padding(horizontal = 12.dp)
-                .fillMaxWidth(if (it < 2) 1f else .6f)
-                .height(20.dp)
-                .clip(CircleShape)
-                .background(shimmer)
+                .fillMaxSize()
+                .padding(8.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text(content!!)
+        }
+    } else if (!isError) {
+        repeat(3) {
+            Box(
+                Modifier
+                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth(if (it < 2) 1f else .6f)
+                    .height(20.dp)
+                    .clip(CircleShape)
+                    .background(shimmer)
+            )
+            Gap(8)
+        }
+    } else {
+        Fallback(
+            "Не удалось загрузить политику конфиденциальности",
+            action = if (targetUrl.isNotBlank()) {
+                "Прочитать в браузере" to { uriHandler.openUri(targetUrl) }
+            } else null
         )
-        
-        Gap(8)
-    } else Fallback(
-        "Не удалось загрузить политику конфиденциальности",
-        action = "Прочитать браузере" to { uriHandler.openUri(PRIVACY_POLICY_URL) }
-    )
+    }
 }

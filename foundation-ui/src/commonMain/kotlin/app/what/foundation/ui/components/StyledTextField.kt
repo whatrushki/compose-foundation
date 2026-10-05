@@ -10,12 +10,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontFamily
-import app.what.foundation.ui.useState
 import kotlinx.coroutines.delay
 
 @Composable
@@ -31,22 +31,26 @@ fun StyledTextField(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val (text, setText) = useState(value)
+    var text by remember { mutableStateOf(value) }
 
     LaunchedEffect(value) {
-        if (text != value) setText(value)
+        if (text != value) {
+            text = value
+        }
     }
 
     LaunchedEffect(text) {
-        if (debounce > 0) delay(debounce)
-        if (text != value) onValueChange(text)
+        if (text != value) {
+            if (debounce > 0) delay(debounce)
+            onValueChange(text)
+        }
     }
 
     OutlinedTextField(
         enabled = !disabled,
-        modifier = modifier.clip(shape),
+        modifier = modifier,
         value = text,
-        onValueChange = setText,
+        onValueChange = { text = it },
         placeholder = placeholder?.let {
             {
                 Text(

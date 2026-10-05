@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.what.foundation.utils.currentTimeMillis
+import io.ktor.client.call.save
 import io.ktor.client.plugins.api.SendingRequest
 import io.ktor.client.plugins.api.createClientPlugin
 import io.ktor.client.request.HttpSendPipeline
@@ -15,10 +16,11 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.util.AttributeKey
 import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.readRemaining
+import io.ktor.utils.io.core.readText
 import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.io.readString
 import kotlinx.serialization.encodeToString
@@ -100,8 +102,9 @@ enum class StatusCategory {
 }
 
 object NetworkMonitor {
-    private val _requests = mutableStateListOf<NetworkRequest>()
-    val requests: List<NetworkRequest> get() = _requests
+    private val _requests = kotlinx.coroutines.flow.MutableStateFlow<List<NetworkRequest>>(emptyList())
+    val requestsFlow: kotlinx.coroutines.flow.StateFlow<List<NetworkRequest>> = _requests.asStateFlow()
+    val requests: List<NetworkRequest> get() = _requests.value
 
     var isMonitoringPaused by mutableStateOf(false)
         private set
@@ -116,17 +119,15 @@ object NetworkMonitor {
             requestHeaders = sanitizeHeaders(request.requestHeaders),
             requestBody = request.requestBody?.take(MAX_BODY_PREVIEW_SIZE)
         )
-        _requests.add(sanitized)
-        if (_requests.size > MAX_REQUESTS) {
-            _requests.removeAt(0)
+        _requests.update { current ->
+            (current + sanitized).takeLast(MAX_REQUESTS)
         }
     }
 
-    suspend fun updateRequest(id: String, update: suspend (NetworkRequest) -> NetworkRequest) {
-        val index = _requests.indexOfFirst { it.id == id }
-        if (index != -1) {
-            _requests[index] = update(_requests[index])
-        }
+    suspend fun updateRequest(id: String, transform: suspend (NetworkRequest) -> NetworkRequest) {
+        val currentItem = _requests.value.firstOrNull { it.id == id } ?: return
+        val updatedItem = transform(currentItem)
+        _requests.value = _requests.value.map { if (it.id == id) updatedItem else it }
     }
 
     fun toggleMonitoring(paused: Boolean) {
@@ -134,7 +135,7 @@ object NetworkMonitor {
     }
 
     fun clearRequests() {
-        _requests.clear()
+        _requests.value = emptyList()
     }
 
     fun exportRequests(): String {
@@ -205,13 +206,14 @@ val NetworkMonitorPlugin = createClientPlugin("NetworkMonitor") {
         }
 
         try {
+            val savedResponse = runCatching { response.call.save().response }.getOrDefault(response)
             NetworkMonitor.updateRequest(callId) {
                 val isImage = it.responseHeaders["Content-Type"]?.contains("image")
                     ?: it.responseHeaders["content-type"]?.contains("image")
                     ?: false
 
                 val (text, size) = if (!isImage) {
-                    val body = runCatching { response.bodyAsText() }.getOrDefault("")
+                    val body = runCatching { savedResponse.bodyAsText() }.getOrDefault("")
                     val formatted = try {
                         json.encodeToString(json.decodeFromString<JsonElement>(body))
                     } catch (_: Exception) {
@@ -237,18 +239,19 @@ val NetworkMonitorPlugin = createClientPlugin("NetworkMonitor") {
     }
 }
 
-@OptIn(DelicateCoroutinesApi::class)
 suspend fun OutgoingContent.decodeContent(): String {
     return when (this) {
         is OutgoingContent.ByteArrayContent -> bytes().decodeToString()
         is OutgoingContent.ReadChannelContent -> readFrom().readRemaining().readString()
         is OutgoingContent.WriteChannelContent -> {
             val channel = ByteChannel(true)
-            GlobalScope.launch(currentCoroutineContext() + CoroutineName("decodeContent")) {
-                writeTo(channel)
-                channel.close()
+            coroutineScope {
+                launch(CoroutineName("decodeContent")) {
+                    writeTo(channel)
+                    channel.close()
+                }
+                channel.readRemaining().readString()
             }
-            channel.readRemaining().readString()
         }
         is OutgoingContent.NoContent -> ""
         else -> ""

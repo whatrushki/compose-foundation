@@ -1,11 +1,11 @@
-package app.what.schedule.ui.theme.icons.filled
+﻿package app.what.foundation.ui.icons.filled
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
-import app.what.schedule.ui.theme.icons.WHATIcons
+import app.what.foundation.ui.icons.WHATIcons
 
 val WHATIcons.Crown: ImageVector
     get() {
@@ -136,3 +136,4 @@ val WHATIcons.Crown: ImageVector
 
 @Suppress("ObjectPropertyName")
 private var _Crown: ImageVector? = null
+

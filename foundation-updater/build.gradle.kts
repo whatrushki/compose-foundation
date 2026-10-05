@@ -33,8 +33,6 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.androidx.core.ktx)
-            implementation(project.dependencies.platform(libs.bom))
-            implementation(libs.appupdate)
         }
     }
 }
