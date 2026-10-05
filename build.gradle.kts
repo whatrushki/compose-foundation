@@ -10,6 +10,14 @@ plugins {
 allprojects {
     group = "app.what.foundation"
     version = "1.1.0"
+
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://artifactory-external.vkpartner.ru/artifactory/maven")
+        }
+    }
 }
 
 subprojects {
