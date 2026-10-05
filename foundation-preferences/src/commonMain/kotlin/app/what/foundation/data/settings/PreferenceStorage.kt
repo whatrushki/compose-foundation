@@ -34,25 +34,19 @@ interface KeyValueStorage {
 class MemoryKeyValueStorage(
     private val map: MutableMap<String, String?> = mutableMapOf()
 ) : KeyValueStorage {
-    private val lock = Any()
     private var listener: ((String) -> Unit)? = null
 
-    override fun getString(key: String, defaultValue: String?): String? = synchronized(lock) {
-        map[key] ?: defaultValue
+    override fun getString(key: String, defaultValue: String?): String? {
+        return map[key] ?: defaultValue
     }
 
     override fun putString(key: String, value: String?) {
-        val currentListener = synchronized(lock) {
-            if (value == null) map.remove(key) else map[key] = value
-            listener
-        }
-        currentListener?.invoke(key)
+        if (value == null) map.remove(key) else map[key] = value
+        listener?.invoke(key)
     }
 
     override fun setOnChangeListener(listener: (key: String) -> Unit) {
-        synchronized(lock) {
-            this.listener = listener
-        }
+        this.listener = listener
     }
 }
 
@@ -127,9 +121,7 @@ abstract class PreferenceStorage(
         val isEncrypted: Boolean = false,
         private val encryptor: PreferenceEncryptor? = null,
     ) {
-        @Volatile
         private var cachedValue: T? = null
-        @Volatile
         private var isCacheLoaded: Boolean = false
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): T? = get()
