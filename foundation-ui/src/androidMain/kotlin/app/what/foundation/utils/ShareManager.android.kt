@@ -74,9 +74,33 @@ actual fun executePlatformShare(channel: ShareChannel, data: ShareData, context:
 }
 
 private fun shareDefault(context: Context, text: String, title: String?) {
+    // Android Binder transaction limit is ~1MB. If text is large (> 100KB), share via temporary file.
+    if (text.length > 100_000) {
+        try {
+            val cacheFile = java.io.File(context.cacheDir, "shared_logs.txt")
+            cacheFile.writeText(text)
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                cacheFile
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, title ?: "Поделиться"))
+            return
+        } catch (_: Exception) {
+            // Fallback to regular sharing if FileProvider is unavailable
+        }
+    }
+
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, text)
     }
-    context.startActivity(Intent.createChooser(intent, title ?: "Поделиться"))
+    runCatching {
+        context.startActivity(Intent.createChooser(intent, title ?: "Поделиться"))
+    }
 }

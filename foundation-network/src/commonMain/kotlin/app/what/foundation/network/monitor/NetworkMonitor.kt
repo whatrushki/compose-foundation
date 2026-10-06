@@ -205,30 +205,36 @@ val NetworkMonitorPlugin = createClientPlugin("NetworkMonitor") {
             )
         }
 
-        try {
-            val savedResponse = runCatching { response.call.save().response }.getOrDefault(response)
+        val contentType = response.headers[HttpHeaders.ContentType] ?: response.headers["content-type"] ?: ""
+        val isImage = contentType.contains("image", ignoreCase = true)
+
+        if (isImage) {
+            val length = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 0L
             NetworkMonitor.updateRequest(callId) {
-                val isImage = it.responseHeaders["Content-Type"]?.contains("image")
-                    ?: it.responseHeaders["content-type"]?.contains("image")
-                    ?: false
-
-                val (text, size) = if (!isImage) {
-                    val body = runCatching { savedResponse.bodyAsText() }.getOrDefault("")
-                    val formatted = try {
-                        json.encodeToString(json.decodeFromString<JsonElement>(body))
-                    } catch (_: Exception) {
-                        body
-                    }
-                    val preview = formatted.take(MAX_BODY_PREVIEW_SIZE)
-                    preview to body.length.toLong()
-                } else {
-                    "image" to (it.responseHeaders["Content-Length"]?.toLong() ?: 0L)
-                }
-
                 it.copy(
                     endTime = currentTimeMillis(),
-                    responseBody = if (isImage) "image" else text,
-                    responseSize = size
+                    responseBody = "[Binary Image]",
+                    responseSize = length
+                )
+            }
+            return@onResponse
+        }
+
+        try {
+            val savedResponse = runCatching { response.call.save().response }.getOrDefault(response)
+            val body = runCatching { savedResponse.bodyAsText() }.getOrDefault("")
+            val formatted = try {
+                json.encodeToString(json.decodeFromString<JsonElement>(body))
+            } catch (_: Exception) {
+                body
+            }
+            val preview = formatted.take(MAX_BODY_PREVIEW_SIZE)
+
+            NetworkMonitor.updateRequest(callId) {
+                it.copy(
+                    endTime = currentTimeMillis(),
+                    responseBody = preview,
+                    responseSize = body.length.toLong()
                 )
             }
         } catch (e: Exception) {
