@@ -14,13 +14,25 @@ enum class HealthCategory(val title: String) {
 }
 
 enum class HealthStatus {
-    PASSED, WARNING, FAILED, SKIPPED
+    PENDING, RUNNING, PASSED, WARNING, FAILED, SKIPPED
 }
 
 sealed interface HealthResult {
     val status: HealthStatus
     val message: String?
     val details: Map<String, String>
+
+    data object Pending : HealthResult {
+        override val status: HealthStatus get() = HealthStatus.PENDING
+        override val message: String? get() = "В очереди"
+        override val details: Map<String, String> get() = emptyMap()
+    }
+
+    data object Running : HealthResult {
+        override val status: HealthStatus get() = HealthStatus.RUNNING
+        override val message: String? get() = "Выполняется проверка..."
+        override val details: Map<String, String> get() = emptyMap()
+    }
 
     data class Passed(
         override val message: String? = null,

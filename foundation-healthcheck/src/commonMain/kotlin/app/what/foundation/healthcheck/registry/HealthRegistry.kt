@@ -23,33 +23,71 @@ class HealthRegistry {
 
     private val _lastReport = MutableStateFlow<HealthReport?>(null)
     val lastReport: StateFlow<HealthReport?> = _lastReport.asStateFlow()
+    val registeredChecks: List<HealthCheck> get() = checks.toList()
+
+    private val _itemsState = MutableStateFlow<List<CheckItemResult>>(emptyList())
+    val itemsState: StateFlow<List<CheckItemResult>> = _itemsState.asStateFlow()
+
+    private fun refreshInitialItems() {
+        if (_lastReport.value == null) {
+            _itemsState.value = checks.map {
+                CheckItemResult(
+                    checkId = it.id,
+                    title = it.title,
+                    category = it.category,
+                    result = HealthResult.Pending
+                )
+            }
+        }
+    }
 
     fun register(check: HealthCheck) {
         checks.removeAll { it.id == check.id }
         checks.add(check)
+        refreshInitialItems()
     }
 
     fun registerAll(vararg checkList: HealthCheck) {
-        checkList.forEach { register(it) }
+        checkList.forEach { check ->
+            checks.removeAll { it.id == check.id }
+            checks.add(check)
+        }
+        refreshInitialItems()
     }
 
     suspend fun runAll(): HealthReport = mutex.withLock {
         _isRunning.value = true
+        
+        // Пометить все тесты как Pending
+        val currentResults = checks.map { check ->
+            CheckItemResult(
+                checkId = check.id,
+                title = check.title,
+                category = check.category,
+                result = HealthResult.Pending
+            )
+        }.toMutableList()
+        _itemsState.value = currentResults.toList()
+
         try {
-            val results = checks.map { check ->
+            for (i in checks.indices) {
+                val check = checks[i]
+                
+                // Ставим текущему статус RUNNING
+                currentResults[i] = currentResults[i].copy(result = HealthResult.Running)
+                _itemsState.value = currentResults.toList()
+
                 val res = try {
                     check.run()
                 } catch (e: Exception) {
                     HealthResult.Failed(message = "Ошибка выполнения проверки: ${e.message}", error = e)
                 }
-                CheckItemResult(
-                    checkId = check.id,
-                    title = check.title,
-                    category = check.category,
-                    result = res
-                )
+
+                currentResults[i] = currentResults[i].copy(result = res)
+                _itemsState.value = currentResults.toList()
             }
-            val report = HealthReport(items = results)
+            
+            val report = HealthReport(items = currentResults.toList())
             _lastReport.value = report
             report
         } finally {

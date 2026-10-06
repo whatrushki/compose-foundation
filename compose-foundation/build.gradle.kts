@@ -32,7 +32,6 @@ kotlin {
             api(project(":foundation-navigation"))
             api(project(":foundation-scraper"))
             api(project(":foundation-healthcheck"))
-            api(project(":foundation-session-tracker"))
             api(project(":foundation-delivery"))
         }
         androidMain.dependencies {
