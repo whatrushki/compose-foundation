@@ -2,7 +2,6 @@ package app.what.navigation.core
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -62,53 +61,59 @@ class AppNavigator(
     }
 
     /**
-     * Открывает Composable напрямую без регистрации роута.
-     * Удобно для диалогов, шторок и временных экранов.
+     * Помещает Composable-контент напрямую в стек (для алертов, диалогов и временных экранов).
      */
-    fun open(full: Boolean = false, content: @Composable () -> Unit): AppNavigator {
-        val entry = InlineNavEntry(
-            id = ++nextInlineId,
-            full = full,
-            content = content
-        )
-        push(entry)
-        return this
+    fun pushComposable(full: Boolean = false, content: @Composable () -> Unit): Long {
+        val id = ++nextInlineId
+        isForward = true
+        backStack.add(InlineNavEntry(id = id, full = full, content = content))
+        return id
     }
 
     /**
      * Извлекает верхний экран из стека.
-     * Если стек пуст и задан [onDismissRequest], вызывает его.
+     * Если оставался последний экран или стек пуст, вызывает [onDismissRequest].
+     * @return true, если экран был извлечен или контейнер закрыт.
      */
     fun pop(): Boolean {
-        if (backStack.isNotEmpty()) {
-            isForward = false
+        isForward = false
+        if (canGoBack) {
             backStack.removeAt(backStack.lastIndex)
-            if (backStack.isEmpty()) {
-                onDismissRequest?.invoke()
-            }
+            return true
+        } else if (backStack.isNotEmpty()) {
+            backStack.clear()
+            onDismissRequest?.invoke()
             return true
         }
         return false
     }
 
     /**
-     * Заменяет текущий верхний экран на новый [destination].
+     * Заменяет текущую вершину стека на [destination].
      */
     fun replace(destination: Any) {
         isForward = true
         if (backStack.isNotEmpty()) {
-            backStack[backStack.lastIndex] = destination
-        } else {
-            backStack.add(destination)
+            backStack.removeAt(backStack.lastIndex)
         }
+        backStack.add(destination)
     }
 
     /**
-     * Очищает весь стек до первого экрана или до пула.
+     * Очищает весь стек и закрывает контейнер при необходимости.
+     */
+    fun clear() {
+        isForward = false
+        backStack.clear()
+        onDismissRequest?.invoke()
+    }
+
+    /**
+     * Возвращается к первому экрану стека.
      */
     fun popToRoot() {
+        isForward = false
         if (backStack.size > 1) {
-            isForward = false
             val first = backStack.first()
             backStack.clear()
             backStack.add(first)
@@ -116,11 +121,25 @@ class AppNavigator(
     }
 
     /**
-     * Полностью очищает стек и закрывает хост.
+     * Открывает Composable-контент.
+     * Если [inStack] = false, предварительно очищает стек, начиная новый флоу.
      */
-    fun clear() {
-        isForward = false
-        backStack.clear()
-        onDismissRequest?.invoke()
+    fun open(full: Boolean = false, inStack: Boolean = false, content: @Composable () -> Unit): Long {
+        if (!inStack) {
+            backStack.clear()
+        }
+        return pushComposable(full = full, content = content)
     }
+
+    /**
+     * Помещает Composable-контент поверх текущего экрана в стеке.
+     */
+    fun push(full: Boolean = false, content: @Composable () -> Unit): Long =
+        open(full = full, inStack = true, content = content)
+
+    fun close() = clear()
+
+    fun animateClose() = clear()
+
+    fun back(): Boolean = pop()
 }
