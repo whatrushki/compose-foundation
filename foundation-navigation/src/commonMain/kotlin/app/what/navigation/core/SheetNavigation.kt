@@ -28,8 +28,6 @@ import app.what.foundation.ui.controllers.SheetController
 import app.what.foundation.ui.controllers.rememberSheetHostController
 import kotlin.reflect.KClass
 
-@Composable
-fun rememberSheetNavigator() = LocalSheetNavigator.current
 
 class SheetNavigator(
     private val sheetController: SheetController,
@@ -130,7 +128,6 @@ fun ProvideGlobalSheet(
     content: @Composable () -> Unit
 ) = CompositionLocalProvider(
     LocalSheetController provides controller,
-    LocalSheetNavigator provides SheetNavigator(controller, navGraph)
 ) {
     val state = rememberModalBottomSheetState(
         skipPartiallyExpanded = controller.full,
@@ -179,6 +176,3 @@ fun ProvideGlobalSheet(
     }
 }
 
-val LocalSheetNavigator = staticCompositionLocalOf<SheetNavigator> {
-    error("No SheetNavigator provided. Wrap your UI hierarchy in ProvideGlobalSheet(...) to access LocalSheetNavigator")
-}

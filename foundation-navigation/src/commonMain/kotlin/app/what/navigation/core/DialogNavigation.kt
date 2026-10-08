@@ -7,6 +7,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.MaterialTheme.shapes
@@ -42,9 +43,13 @@ fun ProvideGlobalDialog(
             )
         ) {
             Surface(
-                shape = shapes.large,
+                shape = if (controller.full) androidx.compose.ui.graphics.RectangleShape else shapes.large,
                 color = colorScheme.surface,
-                modifier = Modifier.animateContentSize().fillMaxWidth()
+                modifier = if (controller.full) {
+                    Modifier.fillMaxSize()
+                } else {
+                    Modifier.animateContentSize().fillMaxWidth()
+                }
             ) {
                 AnimatedContent(
                     targetState = controller.content,
