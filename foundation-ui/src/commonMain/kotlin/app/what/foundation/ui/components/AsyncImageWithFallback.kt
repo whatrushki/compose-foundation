@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
@@ -63,16 +62,24 @@ fun AsyncImageWithFallback(
     headers: Map<String, String> = emptyMap(),
     enableDetailView: Boolean = false
 ) {
+    if (url.isNullOrBlank()) {
+        Box(modifier = modifier.background(colorScheme.surfaceContainerHigh))
+        return
+    }
+
     var showFullScreen by useState(false)
     val context = LocalPlatformContext.current
     
     SubcomposeAsyncImage(
         model = ImageRequest.Builder(context)
             .data(url)
-            .httpHeaders(NetworkHeaders.Builder().apply {
-                add("Accept", "image/*,*/*;q=0.8")
-                headers.forEach { (k, v) -> add(k, v) }
-            }.build())
+            .apply {
+                if (headers.isNotEmpty()) {
+                    httpHeaders(NetworkHeaders.Builder().apply {
+                        headers.forEach { (k, v) -> add(k, v) }
+                    }.build())
+                }
+            }
             .crossfade(true)
             .build(),
         contentDescription = null,
@@ -98,14 +105,16 @@ fun AsyncImageWithFallback(
                 (state as? AsyncImagePainter.State.Error)?.let {
                     Auditor.err(
                         buildTag(LogScope.UI, LogCat.NET, "img"),
-                        "Image loading error",
+                        "Image loading error for url: $url",
                         it.result.throwable
                     )
                 }
                 
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Build, null, tint = colorScheme.primary)
-                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(colorScheme.surfaceContainerHigh)
+                )
             }
         }
         
