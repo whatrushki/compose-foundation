@@ -9,7 +9,7 @@ plugins {
 
 allprojects {
     group = "app.what.foundation"
-    version = "1.1.3"
+    version = "1.1.4"
 
     repositories {
         google()
