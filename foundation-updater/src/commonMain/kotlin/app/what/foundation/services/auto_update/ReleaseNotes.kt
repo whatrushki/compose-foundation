@@ -2,6 +2,7 @@ package app.what.foundation.services.auto_update
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class ReleaseHighlight(
@@ -47,6 +48,42 @@ data class ReleaseNotes(
         return categories.flatMap { it.items }
     }
 
+    fun toJson(): String = json.encodeToString(this)
+
+    /**
+     * Сливает текущие заметки о релизе с более старыми заметками.
+     * Заголовки, версия и описание берутся из более свежей версии (this),
+     * а highlights и changelog объединяются без дубликатов.
+     */
+    fun mergeWith(older: ReleaseNotes): ReleaseNotes {
+        val mergedHighlights = (this.highlights + older.highlights)
+            .distinctBy { if (it.id.isNotBlank()) it.id else it.title.trim().lowercase() }
+
+        val mergedChangelog = (this.changelog + older.changelog)
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+
+        val mergedCategories = if (this.categories.isEmpty() && older.categories.isEmpty()) {
+            emptyList()
+        } else {
+            val allCats = (this.categories + older.categories)
+            allCats.groupBy { it.category }.map { (cat, list) ->
+                ReleaseCategory(
+                    category = cat,
+                    categoryTitle = list.first().categoryTitle,
+                    items = list.flatMap { it.items }.distinct()
+                )
+            }
+        }
+
+        return this.copy(
+            highlights = mergedHighlights,
+            changelog = mergedChangelog,
+            categories = mergedCategories
+        )
+    }
+
     companion object {
         val json = kotlinx.serialization.json.Json {
             ignoreUnknownKeys = true
@@ -57,6 +94,16 @@ data class ReleaseNotes(
             json.decodeFromString<ReleaseNotes>(string)
         } catch (_: Exception) {
             null
+        }
+
+        /**
+         * Объединяет упорядоченный список релизов (от более новых к более старым) в единый ReleaseNotes.
+         */
+        fun merge(notesList: List<ReleaseNotes>): ReleaseNotes? {
+            if (notesList.isEmpty()) return null
+            return notesList.drop(1).fold(notesList.first()) { acc, notes ->
+                acc.mergeWith(notes)
+            }
         }
 
         /**

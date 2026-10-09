@@ -68,12 +68,38 @@ class GitHubUpdateService(
                     )
                 }
 
+                val newerReleases = releases
+                    .filter { !it.draft && !it.prerelease }
+                    .filter { parseVersion(it.tagName) > currentVersionParsed }
+                    .sortedByDescending { parseVersion(it.tagName) }
+
+                val notesList = newerReleases.mapNotNull { rel ->
+                    var notes: ReleaseNotes? = null
+                    val jAsset = rel.assets.firstOrNull { it.name == "release-notes.json" }
+                    if (jAsset != null) {
+                        try {
+                            val jsonString = httpClient.get(jAsset.browserDownloadUrl).body<String>()
+                            notes = ReleaseNotes.fromJson(jsonString)
+                        } catch (_: Exception) {}
+                    }
+                    if (notes == null && !rel.body.isNullOrBlank()) {
+                        notes = ReleaseNotes(
+                            version = rel.tagName,
+                            title = rel.name ?: rel.tagName,
+                            changelog = ReleaseNotes.parseMarkdownChangelog(rel.body)
+                        )
+                    }
+                    notes
+                }
+
+                val mergedReleaseNotes = ReleaseNotes.merge(notesList) ?: parsedReleaseNotes
+
                 val updateInfo = UpdateInfo(
                     version = latestRelease.tagName,
                     releaseNotes = latestRelease.body,
                     downloadUrl = downloadUrl,
                     fileSize = fileSize,
-                    releaseNotesData = parsedReleaseNotes
+                    releaseNotesData = mergedReleaseNotes
                 )
 
                 UpdateResult.Available(updateInfo)
@@ -84,6 +110,59 @@ class GitHubUpdateService(
 
         } catch (e: Exception) {
             UpdateResult.Error("Failed to check for updates: ${e.message}")
+        }
+    }
+
+    suspend fun fetchMergedReleaseNotes(
+        owner: String,
+        repo: String,
+        fromVersion: String,
+        toVersion: String
+    ): ReleaseNotes? {
+        return try {
+            val fromVer = parseVersion(fromVersion)
+            val toVer = parseVersion(toVersion)
+            if (toVer <= fromVer) return null
+
+            val releases = httpClient.get {
+                url("https://api.github.com/repos/$owner/$repo/releases")
+                parameter("per_page", 20)
+                header(HttpHeaders.UserAgent, "$owner/$repo")
+            }.body<List<GitHubRelease>>()
+
+            val targetReleases = releases
+                .filter { !it.draft && !it.prerelease }
+                .filter {
+                    val ver = parseVersion(it.tagName)
+                    ver > fromVer && ver <= toVer
+                }
+                .sortedByDescending { parseVersion(it.tagName) }
+
+            if (targetReleases.isEmpty()) return null
+
+            val notesList = targetReleases.mapNotNull { rel ->
+                var notes: ReleaseNotes? = null
+                val jsonAsset = rel.assets.firstOrNull { it.name == "release-notes.json" }
+                if (jsonAsset != null) {
+                    try {
+                        val jsonString = httpClient.get(jsonAsset.browserDownloadUrl).body<String>()
+                        notes = ReleaseNotes.fromJson(jsonString)
+                    } catch (_: Exception) {}
+                }
+                if (notes == null && !rel.body.isNullOrBlank()) {
+                    notes = ReleaseNotes(
+                        version = rel.tagName,
+                        title = rel.name ?: rel.tagName,
+                        changelog = ReleaseNotes.parseMarkdownChangelog(rel.body)
+                    )
+                }
+                notes
+            }
+
+            ReleaseNotes.merge(notesList)
+        } catch (e: Exception) {
+            Auditor.debug("updater", "Не удалось загрузить историю релизов: ${e.message}")
+            null
         }
     }
 
