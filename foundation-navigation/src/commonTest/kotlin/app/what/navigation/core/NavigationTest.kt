@@ -10,8 +10,7 @@ class TestProvider(val id: String) : NavProvider()
 
 class TestComponent(override val data: TestProvider) : NavComponent<TestProvider> {
     @androidx.compose.runtime.Composable
-    override fun content(modifier: androidx.compose.ui.Modifier): Any {
-        return Unit
+    override fun content(modifier: androidx.compose.ui.Modifier) {
     }
 }
 
