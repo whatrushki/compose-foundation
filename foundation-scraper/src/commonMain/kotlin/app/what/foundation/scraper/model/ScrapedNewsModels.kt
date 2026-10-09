@@ -26,18 +26,34 @@ sealed interface ScrapedContentBlock {
     data class Image(val url: String, val caption: String? = null) : ScrapedContentBlock
 
     @Serializable
+    data class ImageCarousel(val urls: List<String>) : ScrapedContentBlock
+
+    @Serializable
+    data class UnsortedList(val items: List<String>) : ScrapedContentBlock
+
+    @Serializable
+    data class SortedList(val items: List<String>) : ScrapedContentBlock
+
+    @Serializable
     data class Quote(val text: String, val author: String? = null) : ScrapedContentBlock
+
+    @Serializable
+    data class Info(val text: String) : ScrapedContentBlock
+
+    @Serializable
+    data class VideoVK(val url: String) : ScrapedContentBlock
 }
 
 @Serializable
 data class ScrapedNewsDetail(
     val id: String,
     val title: String,
-    val fullText: String,
+    val fullText: String = "",
     val descriptionHtml: String? = null,
     val date: LocalDate,
     val bannerUrl: String? = null,
     val sourceUrl: String,
     val contentBlocks: List<ScrapedContentBlock> = emptyList(),
-    val galleryImages: List<String> = emptyList()
+    val galleryImages: List<String> = emptyList(),
+    val tags: List<String> = emptyList()
 )

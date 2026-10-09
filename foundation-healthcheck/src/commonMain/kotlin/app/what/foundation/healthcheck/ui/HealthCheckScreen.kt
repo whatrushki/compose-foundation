@@ -61,33 +61,25 @@ fun HealthCheckScreen(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Шапка в общем стиле dev-панели
+        // Шапка в лаконичном стиле
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Проверка компонентов",
+                text = "Проверка",
                 style = typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = colorScheme.onSurface
+                color = colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
             )
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(
-                    text = "$passedCount/${displayItems.size} пройдено",
-                    style = typography.labelSmall,
-                    color = colorScheme.onSurfaceVariant
-                )
-
-                Gap(4)
-
                 Box(
                     modifier = Modifier
                         .size(8.dp)
@@ -103,14 +95,15 @@ fun HealthCheckScreen(
                 )
 
                 Text(
-                    text = if (isRunning) "Тестирование..." else "Готово",
+                    text = "$passedCount/${displayItems.size}",
                     style = typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
                     color = colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        // Панель действий
+        // Панель действий: кнопка на всю ширину и кнопка экспорта (если отчёт готов)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -118,7 +111,6 @@ fun HealthCheckScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Кнопка запуска тестов
             Button(
                 onClick = { coroutineScope.launch { registry.runAll() } },
                 enabled = !isRunning,
@@ -126,8 +118,9 @@ fun HealthCheckScreen(
                     containerColor = colorScheme.primary,
                     contentColor = colorScheme.onPrimary
                 ),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                shape = RoundedCornerShape(12.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f)
             ) {
                 if (isRunning) {
                     CircularProgressIndicator(
@@ -136,7 +129,7 @@ fun HealthCheckScreen(
                         color = colorScheme.onPrimary
                     )
                     Gap(8)
-                    Text("Проверка...", style = typography.labelMedium)
+                    Text("Тестирование...", style = typography.labelMedium)
                 } else {
                     Icon(
                         imageVector = WHATIcons.Run,
@@ -144,11 +137,9 @@ fun HealthCheckScreen(
                         modifier = Modifier.size(16.dp)
                     )
                     Gap(8)
-                    Text("Прогнать тесты", style = typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text("Тестировать", style = typography.labelMedium, fontWeight = FontWeight.Bold)
                 }
             }
-
-            Spacer(modifier = Modifier.weight(1f))
 
             val currentReport = report
             if (currentReport != null) {
@@ -170,25 +161,13 @@ fun HealthCheckScreen(
 
         Gap(8)
 
-        if (isRunning) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                color = colorScheme.primary,
-                trackColor = colorScheme.primaryContainer.copy(alpha = 0.4f)
-            )
-        }
-
-        Gap(4)
-
-        // Список всех проверок (всегда виден в реальном времени)
+        // Список всех проверок (стандартизированные карточки)
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(displayItems, key = { it.checkId }) { item ->
                 CheckItemCard(item = item)
@@ -249,15 +228,17 @@ fun CheckItemCard(item: CheckItemResult) {
                 },
                 shapes.small
             )
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .padding(horizontal = 12.dp, vertical = 12.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 44.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(36.dp)
                     .background(statusColor.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {

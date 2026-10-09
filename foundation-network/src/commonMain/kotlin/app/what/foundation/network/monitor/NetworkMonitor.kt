@@ -14,15 +14,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.Url
 import io.ktor.http.content.OutgoingContent
 import io.ktor.util.AttributeKey
-import io.ktor.utils.io.ByteChannel
-import io.ktor.utils.io.readRemaining
-import io.ktor.utils.io.core.readText
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.io.readString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -59,6 +52,7 @@ data class NetworkRequest(
 ) {
     val isSuccessful: Boolean get() = statusCode in 200..299
     val isWebSocket: Boolean get() = requestHeaders["Upgrade"]?.equals("websocket", true) == true
+    val isPending: Boolean get() = statusCode == null && error == null
 
     val host: String get() = runCatching { Url(url).host }.getOrDefault(url)
     val path: String get() = runCatching { Url(url).encodedPath }.getOrDefault("/")
@@ -71,8 +65,12 @@ data class NetworkRequest(
     val requestCookies: Map<String, String> get() = parseCookies(requestHeaders["Cookie"])
     val responseCookies: Map<String, String> get() = parseSetCookies(responseHeaders["Set-Cookie"])
 
-    val duration: Long get() = if (endTime != null && responseTime != null) endTime!! - requestTime else 0
-    val latency: Long get() = if (responseTime != null) responseTime!! - requestTime else 0
+    val duration: Long
+        get() {
+            val end = endTime ?: responseTime
+            return if (end != null && end >= requestTime) end - requestTime else 0
+        }
+    val latency: Long get() = if (responseTime != null && responseTime!! >= requestTime) responseTime!! - requestTime else 0
 
     val contentType: String?
         get() = responseHeaders[HttpHeaders.ContentType] ?: responseHeaders["content-type"]
@@ -82,7 +80,7 @@ data class NetworkRequest(
             in 200..299 -> StatusCategory.Success
             in 300..399 -> StatusCategory.Redirect
             in 400..599 -> StatusCategory.Error
-            null -> StatusCategory.Pending
+            null -> if (error != null) StatusCategory.Error else StatusCategory.Pending
             else -> StatusCategory.Unknown
         }
 
@@ -124,10 +122,10 @@ object NetworkMonitor {
         }
     }
 
-    suspend fun updateRequest(id: String, transform: suspend (NetworkRequest) -> NetworkRequest) {
-        val currentItem = _requests.value.firstOrNull { it.id == id } ?: return
-        val updatedItem = transform(currentItem)
-        _requests.value = _requests.value.map { if (it.id == id) updatedItem else it }
+    fun updateRequest(id: String, transform: (NetworkRequest) -> NetworkRequest) {
+        _requests.update { current ->
+            current.map { if (it.id == id) transform(it) else it }
+        }
     }
 
     fun toggleMonitoring(paused: Boolean) {
@@ -154,7 +152,7 @@ object NetworkMonitor {
 private val json = Json { prettyPrint = true }
 
 val NetworkMonitorPlugin = createClientPlugin("NetworkMonitor") {
-    val callIdKey = AttributeKey<String>("CallId")
+    val callIdKey = AttributeKey<String>("NetworkMonitorCallId")
 
     on(SendingRequest) { request, content ->
         val callId = generateNetworkRequestId()
@@ -176,16 +174,23 @@ val NetworkMonitorPlugin = createClientPlugin("NetworkMonitor") {
         NetworkMonitor.trackRequest(netRequest)
     }
 
-    client.sendPipeline.intercept(HttpSendPipeline.Engine) {
-        val callId = context.attributes.getOrNull(callIdKey) ?: return@intercept
+    client.sendPipeline.intercept(HttpSendPipeline.Before) {
         try {
             proceed()
-        } catch (e: Exception) {
-            NetworkMonitor.updateRequest(callId) {
-                it.copy(
-                    error = "${e::class.simpleName}: ${e.message}",
-                    endTime = currentTimeMillis()
-                )
+        } catch (e: Throwable) {
+            val callId = context.attributes.getOrNull(callIdKey)
+            if (callId != null) {
+                val errorMsg = when {
+                    e is kotlinx.coroutines.CancellationException -> "Cancelled"
+                    e.message.isNullOrBlank() -> e::class.simpleName ?: "Request failed"
+                    else -> "${e::class.simpleName}: ${e.message}"
+                }
+                NetworkMonitor.updateRequest(callId) {
+                    it.copy(
+                        error = errorMsg,
+                        endTime = currentTimeMillis()
+                    )
+                }
             }
             throw e
         }
@@ -207,14 +212,32 @@ val NetworkMonitorPlugin = createClientPlugin("NetworkMonitor") {
 
         val contentType = response.headers[HttpHeaders.ContentType] ?: response.headers["content-type"] ?: ""
         val isImage = contentType.contains("image", ignoreCase = true)
+        val contentLength = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 0L
 
         if (isImage) {
-            val length = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 0L
             NetworkMonitor.updateRequest(callId) {
                 it.copy(
                     endTime = currentTimeMillis(),
                     responseBody = "[Binary Image]",
-                    responseSize = length
+                    responseSize = contentLength
+                )
+            }
+            return@onResponse
+        }
+
+        val isBinary = contentType.contains("octet-stream", ignoreCase = true) ||
+                contentType.contains("audio", ignoreCase = true) ||
+                contentType.contains("video", ignoreCase = true) ||
+                contentType.contains("zip", ignoreCase = true) ||
+                contentType.contains("pdf", ignoreCase = true)
+
+        if (isBinary || contentLength > 1_000_000L) {
+            NetworkMonitor.updateRequest(callId) {
+                it.copy(
+                    endTime = currentTimeMillis(),
+                    responseBody = if (isBinary) "[Binary Data (${formatBytesFallback(contentLength)})]"
+                    else "[Large Response (${formatBytesFallback(contentLength)})]",
+                    responseSize = contentLength
                 )
             }
             return@onResponse
@@ -234,32 +257,41 @@ val NetworkMonitorPlugin = createClientPlugin("NetworkMonitor") {
                 it.copy(
                     endTime = currentTimeMillis(),
                     responseBody = preview,
-                    responseSize = body.length.toLong()
+                    responseSize = if (contentLength > 0) contentLength else body.length.toLong()
                 )
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             NetworkMonitor.updateRequest(callId) {
-                it.copy(error = "Read Error: ${e.message}", endTime = currentTimeMillis())
+                it.copy(
+                    error = "Read Error: ${e.message ?: e::class.simpleName}",
+                    endTime = currentTimeMillis()
+                )
             }
         }
     }
 }
 
-suspend fun OutgoingContent.decodeContent(): String {
-    return when (this) {
-        is OutgoingContent.ByteArrayContent -> bytes().decodeToString()
-        is OutgoingContent.ReadChannelContent -> readFrom().readRemaining().readString()
-        is OutgoingContent.WriteChannelContent -> {
-            val channel = ByteChannel(true)
-            coroutineScope {
-                launch(CoroutineName("decodeContent")) {
-                    writeTo(channel)
-                    channel.close()
-                }
-                channel.readRemaining().readString()
-            }
-        }
-        is OutgoingContent.NoContent -> ""
-        else -> ""
+private fun formatBytesFallback(bytes: Long): String {
+    if (bytes <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB")
+    var value = bytes.toDouble()
+    var unitIndex = 0
+    while (value >= 1024.0 && unitIndex < units.lastIndex) {
+        value /= 1024.0
+        unitIndex++
     }
+    val rounded = (value * 10).toInt() / 10.0
+    return "$rounded ${units[unitIndex]}"
+}
+
+fun OutgoingContent.decodeContent(): String {
+    return runCatching {
+        when (this) {
+            is OutgoingContent.ByteArrayContent -> bytes().decodeToString()
+            is OutgoingContent.NoContent -> ""
+            is OutgoingContent.ReadChannelContent -> "[Stream Content]"
+            is OutgoingContent.WriteChannelContent -> "[Stream Content]"
+            else -> ""
+        }
+    }.getOrDefault("")
 }
