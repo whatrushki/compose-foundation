@@ -4,7 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import app.what.foundation.core.UIComponent
 import kotlin.reflect.KClass
+
 
 expect val screenFactories: MutableMap<KClass<*>, (Any) -> Any>
 
@@ -30,6 +32,16 @@ inline fun <reified P : NavProvider, S : NavComponent<P>> NavGraphBuilder.regist
     }
 }
 
+inline fun <reified P : NavProvider, S : UIComponent> NavGraphBuilder.register(
+    crossinline factory: (P) -> S
+) {
+    composable<P> {
+        val provider = it.toRoute<P>()
+        val screen = androidx.compose.runtime.remember(provider) { factory(provider) }
+        screen.content(androidx.compose.ui.Modifier)
+    }
+}
+
 inline fun <reified P : NavProvider, S : NavComponent<P>> NavGraphBuilder.register(
     screen: KClass<S>,
     noinline factory: (P) -> S
@@ -41,6 +53,7 @@ inline fun <reified P : NavProvider, S : NavComponent<P>> NavGraphBuilder.regist
         s.content(androidx.compose.ui.Modifier)
     }
 }
+
 
 inline fun <reified P : NavProvider> NavGraphBuilder.registerRoute(
     crossinline content: @Composable (P) -> Unit

@@ -50,14 +50,34 @@ class GitHubUpdateService(
                 val downloadUrl = matchedAsset.browserDownloadUrl
                 val fileSize = matchedAsset.size
 
+                val jsonAsset = latestRelease.assets.firstOrNull { it.name == "release-notes.json" }
+                var parsedReleaseNotes: ReleaseNotes? = null
+                if (jsonAsset != null) {
+                    try {
+                        val jsonString = httpClient.get(jsonAsset.browserDownloadUrl).body<String>()
+                        parsedReleaseNotes = ReleaseNotes.fromJson(jsonString)
+                    } catch (e: Exception) {
+                        Auditor.debug("updater", "Не удалось загрузить release-notes.json: ${e.message}")
+                    }
+                }
+
+                if (parsedReleaseNotes == null && !latestRelease.body.isNullOrBlank()) {
+                    parsedReleaseNotes = ReleaseNotes(
+                        version = latestRelease.tagName,
+                        changelog = ReleaseNotes.parseMarkdownChangelog(latestRelease.body)
+                    )
+                }
+
                 val updateInfo = UpdateInfo(
                     version = latestRelease.tagName,
                     releaseNotes = latestRelease.body,
                     downloadUrl = downloadUrl,
-                    fileSize = fileSize
+                    fileSize = fileSize,
+                    releaseNotesData = parsedReleaseNotes
                 )
 
                 UpdateResult.Available(updateInfo)
+
             } else {
                 UpdateResult.NotAvailable
             }
